@@ -1,0 +1,22 @@
+# Secrets: never commit tokens or env files
+.env
+.env.*
+*.token
+*.pem
+*.key
+secrets/
+
+# Scratch output from running the skill (may contain donor data)
+*.json
+!**/package.json
+*.csv
+out/
+tmp/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
