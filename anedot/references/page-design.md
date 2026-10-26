@@ -36,8 +36,8 @@ A donation page has one job: help someone who already wants to give finish the g
 - Compress images (WebP or AVIF, under about 200 KB for the hero), because slow pages lose gifts.
 
 ## 5. Suggested amounts
-- 3 to 5 preset amounts plus an "Other" field. Four is a good default (a 2x2 grid on mobile).
-- Order them from low to high. Preselect a middle-to-upper amount that fits the audience (often the second or third tier), not the lowest.
+- 4 to 6 preset amounts plus an "Other" field. Six fits a 3x2 grid.
+- Order them from low to high. Do not preselect an amount; let the donor choose.
 - Base the tiers on the org's real giving data when available. Otherwise use round numbers that step up clearly (for example 25 / 50 / 100 / 250 for one-time gifts).
 - Monthly tiers are lower than one-time tiers (for example 10 / 20 / 35 / 50). Change the presets when the toggle changes.
 - One-time vs. monthly: a clear two-option segmented toggle above the amounts. Default to one-time unless the org deliberately runs a monthly program. Encourage monthly with honest framing ("Give monthly to support year-round work"), never with a pre-checked box or a guilt modal.
@@ -67,7 +67,7 @@ A donation page has one job: help someone who already wants to give finish the g
 ## 8. Common mistakes to avoid
 - A navigation menu, many links, or a newsletter pop-up on the donation page.
 - A huge hero image that pushes the form below the fold on mobile.
-- Too many amount options (7 or more), or the lowest one preselected.
+- More than 6 presets, or any amount preselected.
 - A monthly box pre-checked or hidden in fine print.
 - Gray-on-gray text, a low-contrast button, or a light-on-light selected state.
 - Text or logos baked into the header image.
@@ -80,7 +80,7 @@ A donation page has one job: help someone who already wants to give finish the g
 - [ ] The headline and the first amounts are visible on a 375px screen without scrolling.
 - [ ] One accent color, used only on the button and the selected states.
 - [ ] Every text and UI pair passes WCAG 2.2 AA contrast.
-- [ ] 3 to 5 amounts plus Other, a sensible preselect, and separate monthly tiers.
+- [ ] 4 to 6 amounts plus Other, none preselected, one-time and monthly offered.
 - [ ] The button says "Give $X". No pre-checked monthly box.
 - [ ] Every claim, number and quote is real and from the org.
 - [ ] The logo is in the header, and there's no text inside images.

@@ -1,98 +1,74 @@
 # Create a donation page
 
-Goal: one request in, one live public link out. Build the seven configs, create the page, activate it, confirm it loads.
+Default: `scripts/anedot.sh CREATE_PAGE --account <slug-or-id> [--title "..."]`. It prints the live URL and page id. Reply with the URL and one line on amounts and frequency. Use the manual steps below only for something the command does not cover.
 
-Before you design, read `references/page-design.md` and apply it. Its numbers and its never-invent rule matter; the amount figures in it are examples, so use the org's real giving data when you have it. One exception: that doc says not to collect employer; for federal (FEC) campaign pages, employer and occupation ARE required by law (see Compliance below), and that requirement wins.
+Read `references/page-design.md` for layout, color, and copy.
 
 ## Defaults
 
-Use these unless the user says otherwise. Do not ask about them.
+| Setting | Default | Applies to |
+|---|---|---|
+| Amounts | $25, $50, $100, $250, $500, $1,000 plus Other | Every page |
+| Preselected amount | None | Every page |
+| Frequency | One-time and monthly (toggle starts on one-time) | Every page |
+| Name fields | First and last name only | Every page |
+| Employer and occupation | Shown and required | **Federal campaigns only** (or a state that requires it). Off otherwise |
+| Other fields | Email and address required, phone optional | Every page |
+| Limits | $1 to $25,000 | Every page |
+| Fund | Active fund named like "General", else the first active fund | Every page |
+| Payments | Card, Apple Pay, Google Pay, bank. PayPal, bitcoin, fee cover off | Every page |
+| Title, receipt sender | "Support {displayName}", `displayName` | Every page |
+| Slug | Kebab-case title. On a slug conflict, a short suffix is added | Every page |
 
-| Setting | Default |
+The giving defaults (amounts, no preselect, one-time and monthly) apply to every user's pages unless the user explicitly asks for something else. Employer and occupation depend on the org: federal means `category: "political"` with `subCategory: "federal"`, or the user says it is a federal candidate, committee, or PAC. That is a legal requirement, so keep it even when unasked.
+
+## Keys
+
+Amount config (`POST /org/v3/action_page_amount_configurations`):
+
+```json
+{"name":"<title> - amounts <suffix>","default":false,
+ "amountPresets":{"default":[{"amount":2500,"featured":false,"description":null},{"amount":5000,"featured":false,"description":null},
+   {"amount":10000,"featured":false,"description":null},{"amount":25000,"featured":false,"description":null},
+   {"amount":50000,"featured":false,"description":null},{"amount":100000,"featured":false,"description":null}]},
+ "amountPresetsOther":true,"recurringOptions":["once","monthly"],"recurringDefaultFrequency":"once",
+ "displayFrequencyAsCheckbox":false,"transactionMinimum":100,"transactionMaximum":2500000}
+```
+
+- Amounts are cents. Do not add `"default": true` to a preset; that preselects it. `featured: true` adds a "Popular" highlight.
+- `recurringOptions` also accepts `quarterly`, `semiannually`, `yearly`.
+
+Field config (`POST /org/v3/action_page_field_configurations`; unspecified keys get platform defaults):
+
+| Field | Keys |
 |---|---|
-| Amounts | $25, $50 (preselected), $100, $250, plus a custom amount |
-| Frequency | One-time and monthly, one-time preselected |
-| Limits | $1 minimum, $25,000 maximum |
-| Fund | The account's active fund named like "General", else the first active fund |
-| Payments | Card, Apple Pay, Google Pay, bank debit. PayPal and bitcoin off. Fee cover off |
-| Name fields | First name and last name ONLY. Turn off middle name/initial, prefix, suffix, and any other name field |
-| Other fields | Email and address required. Phone shown, optional |
-| FEC compliance | If the page is for a federal (FEC-regulated) campaign, employer and occupation are REQUIRED. See Compliance |
-| Title | "Support {account name}" |
-| Body | One short paragraph inviting a one-time or monthly gift |
-| Slug | Kebab-case of the title. If create fails on the slug, add a short suffix and retry (exact error not yet observed) |
-| Live | Yes, activate at the end. Leave it paused only if the user says "draft" |
+| Name, first and last only | `displayName: true`, `requireName: true`, `includeMiddleName: false`, `includeSuffix: false`, `includeTitle: false`, `requireTitle: false`, `includeOrganization: false` |
+| Email, address, phone | `displayEmail`, `requireEmail`, `displayAddress`, `requireAddress`, `displayPhone`, `requirePhone` |
+| Employer and occupation | `displayEmployment`, `includeEmployerName`, `requireEmployerName`, `includeOccupation`, `requireOccupation` (all `true` for federal, all `false` otherwise) |
 
-## Compliance (federal campaigns)
+Also send `"type":"ActionPageFieldConfigurations::Donation"`. Every config body needs a `name` that is unique in the account, plus `"default": false`.
 
-Federal campaigns are regulated by the FEC. If the page is for a federal candidate or committee (House, Senate, presidential, or a federal PAC), U.S. law requires collecting each donor's **employer** and **occupation**. So for any FEC/federal campaign page:
+Other configs: see `create_page` in `scripts/anedot.sh` for the exact `payment`, `general`, `confirmation`, `fund`, and `design` bodies.
 
-- Set the **employer** and **occupation** fields to shown AND required in the field config.
-- Keep them even if the user doesn't mention compliance; it's a legal requirement, not a preference.
+Page (`POST /org/v3/action_pages`): `type: "DonationActionPage"`, `name`, `slug`, `headerTitleText`, `content`, the seven `*ConfigurationId` keys, and two keys that are required even for a live page: `pausedMessage` and `backgroundImagePosition` (`cover` or `center`). On any `422`, read `errors[].attribute`, fix it, retry.
 
-Decide "is this federal?" from what the user says (e.g. "for my congressional race", "Senate campaign", "federal PAC") or ask one quick question only if it's genuinely unclear. For non-federal pages (state/local campaigns, nonprofits, churches, general fundraising), leave employer and occupation OFF by default unless the user asks for them.
+## Activate and verify
 
-## Steps
+- `PATCH /org/v3/action_pages/{id}/activate` returns 204.
+- Fetch `https://secure.anedot.com/{account slug}/{page slug}` with a browser `User-Agent` (curl's default gets 403). Live means the HTML contains `<form`. A paused page also returns 200 and has no form. The `pausedMessage` text is in the page data either way, so do not test for it.
+- A draft (`--draft`) has a pause window and gets no link until activated.
 
-`$ACCT` is the account `id`. Write each JSON body to a file and send it with `scripts/anedot.sh`. Keep each returned `id`.
+## Images
 
-1. **Account.** `GET /org/v3/accounts/$ACCT`. Keep `slug` and `name`.
-2. **Fund.** `GET /org/v3/action_pages_funds?account_id=$ACCT`. Pick the fund per the defaults.
-3. **Configs.** `POST /org/v3/action_page_{type}_configurations?account_id=$ACCT` for each type. Every body takes `"name"` and `"default": false`.
-   - `amount`:
-     ```json
-     {"name":"<title> - amounts","default":false,
-      "amountPresets":{"default":[{"amount":2500,"id":"p25"},{"amount":5000,"default":true,"id":"p50"},{"amount":10000,"id":"p100"},{"amount":25000,"id":"p250"}]},
-      "amountPresetsOther":true,"recurringOptions":["once","monthly"],"recurringDefaultFrequency":"once",
-      "displayFrequencyAsCheckbox":false,"transactionMinimum":100,"transactionMaximum":2500000}
-     ```
-   - `fund`: `{"name":"...","default":false,"multiFundExpanded":true,"multiFundModifiable":false,"fundSelectionsAttributes":[{"fundId":"<fund id>","percentage":100,"position":0,"shown":true}]}`
-   - `payment`: `{"name":"...","default":false,"creditCardEnabled":true,"applepayEnabled":true,"googlepayEnabled":true,"anedotEnabled":true,"personalDirectDebitEnabled":true,"businessDirectDebitEnabled":true,"paypalEnabled":false,"bitcoinOpenNodeEnabled":false,"feeCoverType":"disabled"}`
-   - `general`: `{"name":"...","default":false,"acceptsDonationsForAllPurchaseTypes":true,"externalRaisedAmount":0}`
-   - `confirmation`: `{"name":"...","default":false,"emailFromName":"<account name>","subjectLine":"Donation Receipt","content":[{"type":"text","content":{"text":"<p>Thank you for your donation, {{first_name}}!</p>","hasSecondColumn":null,"secondColumnText":null}}]}`
-   - `field`: start from `GET` of an existing page's field config and drop `id`, `accountId`, timestamps, and counts. Set `"type":"ActionPageFieldConfigurations::Donation"`. Then apply the name-field and compliance defaults:
-     - Show **first name** and **last name** only. Turn OFF middle name/initial, prefix (Mr./Mrs.), suffix, and any other name field.
-     - Email and address shown/required; phone shown/optional.
-     - If this is a federal (FEC) campaign page, set **employer** and **occupation** to shown AND required. Otherwise leave them off.
-   - `design`: same approach, from an existing design config. Then set colors (see Design below).
+- The checkout renders uploaded images by id: `headerImageId` on the page, `logoImageId` on the design config. List them with `GET /org/v3/account_images?account_id=...` (each has `id` and `file.url`).
+- `headerImageUrl` is stored but not shown by the current checkout. Do not rely on it.
+- A PAT cannot upload (`POST /org/v3/account_images` returns 403). For a new image, prepare it (header about 2400x1000, under 1 MB), host it at a public HTTPS image URL or hand the file to the user, and ask them to upload it once in the Anedot dashboard. Then set the id.
+- With no `logoImageId`, the page shows the account's logo.
 
-   Cloning from an existing page keeps the account's own conventions. Find one with `GET /org/v3/action_pages?account_id=$ACCT&per_page=1` and read its `*ConfigurationId` fields.
-4. **Page.** `POST /org/v3/action_pages?account_id=$ACCT`:
-   ```json
-   {"type":"DonationActionPage","name":"<title>","slug":"<slug>",
-    "headerTitleText":"<title>","headerTitleAlignment":"center",
-    "formAlignment":"center","formLayout":"standard","formStyle":"one_column",
-    "goal":0,"footerShowAccountName":true,"showShareButtons":true,"recoveryEnabled":true,
-    "metaPageTitle":"<title>","metaPageDescription":"<one line>",
-    "content":[{"type":"text","content":{"text":"<h2><title></h2><p><body></p>","hasSecondColumn":null,"secondColumnText":null}}],
-    "headerImagePosition":"center",
-    "amountConfigurationId":"...","confirmationConfigurationId":"...","designConfigurationId":"...",
-    "fieldConfigurationId":"...","fundConfigurationId":"...","generalConfigurationId":"...","paymentConfigurationId":"..."}
-   ```
-   For a draft, add `"pausedMessage"`, `"pauseStartAt"` (now, UTC) and `"pauseEndAt"` (far future).
-5. **Header image** (optional). PATCH it on after create; see Header image below.
-6. **Activate.** `PATCH /org/v3/action_pages/{page id}/activate?account_id=$ACCT`. Expect 204.
-7. **Verify.** `GET` the page and check `status` is `active`. Fetch `https://secure.anedot.com/{account slug}/{page slug}` and expect 200.
-8. **Reply** with the link, then one line on amounts, frequency, and anything you defaulted. If it's a federal page, confirm employer and occupation are required.
+## Design colors
 
-## Design
+PATCH `/org/v3/action_page_design_configurations/{id}` with only what changes: `backgroundColor`, `headerBackgroundColor`, `footerBackgroundColor`, `titleColor`, `headerColor`, `footerColor`, `bodyColor`, `captionColor`, `headline1Color`..`headline6Color`, `actionElementColorPrimary` (button), `actionElementColorSecondary` (button text). The form sits on a white card, so keep `bodyColor`, `captionColor`, and headline colors dark even on a dark page background. Check 4.5:1 contrast.
 
-Follow `references/page-design.md` for layout, color, contrast (WCAG 2.2 AA), type, imagery, amounts, and copy. Then set the colors in the config:
+## Edits
 
-PATCH `/org/v3/action_page_design_configurations/{design id}?account_id=$ACCT` with only the keys you change:
-
-- Page: `backgroundColor`, `headerBackgroundColor`, `footerBackgroundColor`
-- Text: `titleColor`, `headerColor`, `footerColor`, `bodyColor`, `captionColor`, `headline1Color` through `headline6Color`
-- Buttons: `actionElementColorPrimary`, `actionElementColorSecondary`
-
-Turn a named palette ("navy and gold", "match my site") into hex values. Keep body text dark on light backgrounds, or light on dark, for contrast.
-
-## Header image
-
-- `PATCH /org/v3/action_pages/{id}` with `{"headerImageUrl":"<url>","headerImagePosition":"center"}`.
-- The URL must be public and stable. If you generate an image, host it somewhere public first.
-- A PAT cannot upload, so `headerImageId` and the logo are out of reach. Tell the user the logo is a one-time dashboard upload.
-
-## Edits after launch
-
-`PATCH /org/v3/action_pages/{id}` for page fields (title, content, header image, slug). PATCH the matching config for amounts, funds, payments, or fields (verified for design configs only; others follow the same route pattern). Confirm the public page after each change.
+`PATCH /org/v3/action_pages/{id}` for page fields. PATCH the matching config for amounts, fields, or design. A config can be shared (`actionPageCount` > 1); if so, create a new one and point the page at it. Re-verify the public page after edits.

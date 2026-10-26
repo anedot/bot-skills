@@ -28,7 +28,7 @@ anedot/
   references/lookup-donations.md      find donations by donor, date, amount, page, or status
   references/account-stats.md         totals, counts, averages, by fund, page, or period
   references/lapsed-donor-report.md   donors who gave before but not recently
-  scripts/anedot.sh                   curl helper: auth, 401 retry, pagination
+  scripts/anedot.sh                   curl helper: auth, retries, pagination, account lookup
 ```
 
 ## Install
@@ -39,13 +39,13 @@ anedot/
 4. Make it available to the helper script as either:
    - `ANEDOT_TOKEN`, an environment variable, or
    - `ANEDOT_TOKEN_CMD`, a command that prints the token, for example `op read "op://<vault>/<item>/credential"`.
-5. Ask your assistant something like "list my Anedot accounts" to check the connection.
+5. Ask your assistant something like "list my Anedot accounts" to check the connection. On first run the skill checks the token, lists your accounts by display name and slug (never the legal name), reads the org type (federal accounts need employer and occupation on donation pages), and offers a first task. From a shell, `anedot/scripts/anedot.sh ACCOUNTS` does the same lookup.
 
 Requirements: `bash`, `curl`, and `jq`. If your copy lost the executable bit, run `chmod +x anedot/scripts/anedot.sh`.
 
 ## Known limits
 
-- Personal access tokens cannot upload images. Header images work through a public image URL (`headerImageUrl`). Upload your logo once in the Anedot dashboard.
+- Personal access tokens cannot upload images. Upload header images and your logo once in the Anedot dashboard; the skill then uses them by id.
 - Refunds, voids, and other donation edits are not available to a personal access token.
 - Some filters and endpoints are marked **Unverified** in [`anedot/references/api.md`](anedot/references/api.md). Help confirm them.
 

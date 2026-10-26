@@ -13,7 +13,8 @@
 | "over $100" | `amount_gteq=10000` (cents) |
 | "under $20" | `amount_lt=2000` |
 | "on the Spring page" | find the page id in `GET /org/v3/action_pages`, then `action_page_ids=<id>` |
-| "refunded", "voided" | `status=voided` and similar. Seen values: `completed`, `voided` |
+| "refunded", "voided", "declined" | `status=voided` and similar. Seen values: `completed`, `voided`, `refunded`, `declined` |
+| "recurring", "monthly donors" | fetch the window, keep rows with a non-null `actionPagesCommitmentId` |
 
 Verified: `sort=-created_at`, `start_date`, `end_date`, `amount_gteq`, `email`, `per_page`, `page`. The rest come from the API implementation; if one seems ignored, fetch the window and filter locally.
 
@@ -21,8 +22,8 @@ Verified: `sort=-created_at`, `start_date`, `end_date`, `amount_gteq`, `email`, 
 
 1. Build the query. Default window when the user gives none: last 30 days.
 2. Fetch. For "show me" requests, one page of 10 to 25 is enough. For counts or totals, use `ALL` with `per_page=500`.
-3. Check edges. Date-filter boundary behavior is unverified, so drop rows whose `createdAt`, converted to the user's zone, falls outside the window.
-4. Reply with a short list: date and time (user's zone), donor name, amount in dollars, page, status. Say how many matched. Offer more only if the list was cut.
+3. Check edges. `start_date` and `end_date` are inclusive and use the account's local day (`donationDate`). If the user's zone differs from the account's `timeZone`, drop rows whose `createdAt`, converted to the user's zone, falls outside the window.
+4. Reply with a short list: date and time (user's zone), donor name, amount in dollars, page, status, and whether it is recurring. Say how many matched. Offer more only if the list was cut.
 
 ## Privacy
 
